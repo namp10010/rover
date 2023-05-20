@@ -153,7 +153,7 @@ func (r *rover) PopulateConfigs(parent string, parentKey string, rso *ResourcesO
 	}
 }
 
-func (r *rover) PopulateModuleState(rso *ResourcesOverview, module *tfjson.StateModule, prior bool) {
+func (r *rover) PopulateModuleState(rso *ResourcesOverview, module *tfjson.StateModule, allowed map[string]struct{}, prior bool) {
 	childIndex := regexp.MustCompile(`\[[^[\]]*\]$`)
 
 	rs := rso.States
@@ -162,6 +162,11 @@ func (r *rover) PopulateModuleState(rso *ResourcesOverview, module *tfjson.State
 	for _, rst := range module.Resources {
 		id := rst.Address
 		parent := module.Address
+
+		if _, ok := allowed[id]; !ok {
+			continue
+		}
+
 		//fmt.Printf("ID: %v\n", id)
 		if rst.AttributeValues != nil {
 
@@ -215,10 +220,12 @@ func (r *rover) PopulateModuleState(rso *ResourcesOverview, module *tfjson.State
 	}
 
 	for _, childModule := range module.ChildModules {
-
 		parent := module.Address
-
 		id := childModule.Address
+
+		if _, ok := allowed[id]; !ok {
+			continue
+		}
 
 		if _, ok := rs[parent]; !ok {
 			rs[parent] = &StateOverview{}
@@ -255,7 +262,7 @@ func (r *rover) PopulateModuleState(rso *ResourcesOverview, module *tfjson.State
 
 		rs[parent].Children[id] = rs[id]
 
-		r.PopulateModuleState(rso, childModule, prior)
+		r.PopulateModuleState(rso, childModule, allowed, prior)
 	}
 
 }
@@ -295,21 +302,38 @@ func (r *rover) GenerateResourceOverview() error {
 
 	r.PopulateConfigs("", "", rso, r.Plan.Config.RootModule)
 
+	// Loop through resource changes keep list of changes ids
+	changedResources := make(map[string]struct{})
+	changedConfigs := make(map[string]struct{})
+	for _, resource := range r.Plan.ResourceChanges {
+		if resource.Change == nil {
+			continue
+		}
+
+		if resource.Change.Actions.NoOp() {
+			continue
+		}
+
+		changedResources[resource.Address] = struct{}{}
+		changedResources[resource.ModuleAddress] = struct{}{}
+		changedConfigs[matchBrackets.ReplaceAllString(resource.Address, "")] = struct{}{}
+	}
+
 	// Populate prior state
 	if r.Plan.PriorState != nil {
 		if r.Plan.PriorState.Values != nil {
 			if r.Plan.PriorState.Values.RootModule != nil {
-				r.PopulateModuleState(rso, r.Plan.PriorState.Values.RootModule, true)
+				r.PopulateModuleState(rso, r.Plan.PriorState.Values.RootModule, changedResources, true)
 			}
 		}
 	}
 
 	// Populate planned state
-	if r.Plan.PlannedValues != nil {
-		if r.Plan.PlannedValues.RootModule != nil {
-			r.PopulateModuleState(rso, r.Plan.PlannedValues.RootModule, false)
-		}
-	}
+	//if r.Plan.PlannedValues != nil {
+	//	if r.Plan.PlannedValues.RootModule != nil {
+	//		r.PopulateModuleState(rso, r.Plan.PlannedValues.RootModule, changedResources, false)
+	//	}
+	//}
 
 	// Create root module in state if doesn't exist
 	if _, ok := rs[""]; !ok {

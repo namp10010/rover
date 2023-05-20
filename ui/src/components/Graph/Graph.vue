@@ -356,43 +356,6 @@ export default {
         cy.add(n);
       });
 
-      // cy.nodeHtmlLabel([
-      //   {
-      //     query: ".resource-name",
-      //     tpl: function (data) {
-      //       return `<div class="node ${data.change ? data.change : ""}">${
-      //         data.label
-      //       }</div>`;
-      //     },
-      //   },
-      //   {
-      //     query: ".data-name",
-      //     tpl: function (data) {
-      //       return `<div class="node data ${data.change ? data.change : ""}">${
-      //         data.label
-      //       }</div>`;
-      //     },
-      //   },
-      //   {
-      //     query: ".variable",
-      //     tpl: function (data) {
-      //       return `<div class="node variable">${data.label}</div>`;
-      //     },
-      //   },
-      //   {
-      //     query: ".output",
-      //     tpl: function (data) {
-      //       return `<div class="node output">${data.label}</div>`;
-      //     },
-      //   },
-      //   {
-      //     query: ".locals",
-      //     tpl: function (data) {
-      //       return `<div class="node locals">${data.label}</div>`;
-      //     },
-      //   },
-      // ]);
-
       this.runLayouts();
 
       // Add click event
@@ -509,9 +472,9 @@ export default {
       this.graph = graph;
       this.renderGraph();
     } else {
-      axios.get(`/api/graph`).then((response) => {
+      axios.get(`http://localhost:9000/api/graph`).then((response) => {
         this.graph = response.data;
-        //console.log(this.graph)
+        console.log(this.graph)
         this.renderGraph();
       });
     }
